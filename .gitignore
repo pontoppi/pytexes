@@ -1,0 +1,25 @@
+*.pyc
+*.fits
+
+# Packages/installer info
+*.egg
+*.egg-info
+dist
+app/dist
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+distribute-*.tar.gz
+
+# Configuration information
+*~
+*_build
+*.fits
+okfile
+ref
+output
