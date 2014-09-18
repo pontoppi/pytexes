@@ -12,6 +12,7 @@ from scipy.ndimage.filters import median_filter
 from scipy import constants
 import matplotlib.pylab as plt
 import inpaint as inpaint
+import utils.helpers as helpers
 
 class Environment():
     '''
@@ -50,13 +51,22 @@ class Environment():
 
     def getWaveRange(self,setting,onum):
         range_str = self.settings.get(setting,'wrange'+str(int(onum)))
-        range = json.loads(range_str)
+        range = ranges[onum]
         return range
         
-    def getYRange(self,setting,onum):
-        range_str = self.settings.get(setting,'yrange'+str(int(onum)))
-        range = json.loads(range_str)
-        return range
+    def getOrderWidth(self,setting):
+        return self.settings.get(setting,'orderw')
+        
+    def getXRange(self,setting,onum):
+        range_str = self.settings.get(setting,'scenters')
+        ranges = json.loads(range_str)
+        orderws = self.getOrderWidth(setting)
+        orderw = json.loads(orderws)
+        det = self.getDetPars()
+        left = np.max([ranges[onum]-orderw,0])
+        right = np.min([ranges[onum]+orderw,det['nx']-1])
+        
+        return (left,right)
 
     def getDispersion(self,setting,onum):
         A_str = self.settings.get(setting,'A'+str(int(onum)))
@@ -73,8 +83,8 @@ class Environment():
         gain = self.detpars.getfloat('Detector','gain')
         rn   = self.detpars.getfloat('Detector','rn')
         dc   = self.detpars.getfloat('Detector','dc')
-        nx   = self.detpars.getfloat('Detector','nx')
-        ny   = self.detpars.getfloat('Detector','ny')
+        nx   = self.detpars.getint('Detector','nx')
+        ny   = self.detpars.getint('Detector','ny')
         return {'gain':gain,'rn':rn,'dc':dc,'nx':nx,'ny':ny}
         
     def getNOrders(self,setting):
@@ -126,27 +136,32 @@ class Observation():
     def _openList(self):
         warnings.resetwarnings()
         warnings.filterwarnings('ignore', category=UserWarning, append=True)
-        import pdb;pdb.set_trace()
-        self.planes = []
+        
+        self.cubes = []
+        self.headers = []
+        
+        self.nnod = 0
         for file in self.flist:
-            plane = pf.getdata(file,ignore_missing_end=True)
-            self.planes.append(plane)
-        self._makeHeader
-
+            cube = pf.getdata(file,ignore_missing_end=True)
+            header = pf.getheader(file)
+            self.cubes.append(cube)
+            self.headers.append(header)
+            self.nnod += self.getNNods()
         self.exp_pars = self.getExpPars()
         self.det_pars = self.Envi.getDetPars()
 
     def getExpPars(self):
-        coadds   = self.getKeyword('COADDS')[0]
-        sampmode = self.getKeyword('SAMPMODE')[0]
-        nreads   = self.getKeyword('MULTISPE')[0]
-        itime    = self.getKeyword('ITIME')[0]
-        nexp     = len(self.planes)
-        return {'coadds':coadds,'sampmode':sampmode,'nreads':nreads,'itime':itime,'nexp':nexp}
+        nreads   = self.getKeyword('NSUM')[0]
+        itime    = self.getKeyword('FRAMETIM')[0]
+        return {'nreads':nreads,'itime':itime}
+    
+    def getNNods(self):
+        nnod   = self.getKeyword('NNOD')[0]
+        return nnod
 
     def getSetting(self):
-        echelle   = self.getKeyword('ECHLPOS')
-        crossdisp = self.getKeyword('DISPPOS')
+        echelle   = self.getKeyword('ECHELLE')
+        crossdisp = self.getKeyword('LORES')
 
         assert len([e for e in echelle if e==echelle[0]])==len(echelle), \
             'All exposures must be taken with the same setting!'
@@ -179,16 +194,20 @@ class Observation():
 
     def _getStack(self):
         
-        nexp = self.exp_pars['nexp']
-        nx = self.planes[0][0].header['NAXIS1']
-        ny = self.planes[0][0].header['NAXIS2']
-        
+        nexp = np.sum([cube.shape[0] for cube in self.cubes])        
+        nx = self.det_pars['nx']
+        ny = self.det_pars['ny']
+
         stack = np.zeros((nx,ny,nexp))
         ustack = np.zeros((nx,ny,nexp))
-        
-        for i,plane in enumerate(self.planes):
-            stack[:,:,i]  = plane[0].data*self.det_pars['gain'] #convert everything to e-
-            ustack[:,:,i] = self._error(plane[0].data)
+
+        count = 0
+        for i,cube in enumerate(self.cubes):
+            nplanes = cube.shape[0]
+            for j in np.arange(nplanes):
+                stack[:,:,count]  = cube[j,:,:]*self.det_pars['gain'] #convert everything to e-
+                ustack[:,:,count] = self._error(cube[j,:,:])
+                count += 1
         return stack,ustack
 
     def _error(self,data):
@@ -232,10 +251,8 @@ class Observation():
         #stack_stddev = np.std(stack,2)
         #shape = stack.shape
         #masked_stack = ma.zeros(shape)
-        
         masked_stack = ma.masked_invalid(stack)
         masked_ustack = ma.masked_invalid(ustack)
-        
         image = ma.average(masked_stack,2,weights=1./masked_ustack**2)
         uimage = np.sqrt(ma.mean(masked_ustack**2,2)/ma.count(masked_ustack,2))
         
@@ -252,7 +269,7 @@ class Observation():
 
     def getKeyword(self,keyword):
         try:
-            klist = [plane[0].header[keyword] for plane in self.planes]
+            klist = [header[keyword] for header in self.headers]
             return klist
         except ValueError:
             print "Invalid header keyword"
@@ -263,7 +280,6 @@ class Flat(Observation):
         self.Envi = Environment()
         self.flist = filelist
         self._openList()
-        self._makeHeader()
         self.stack,self.ustack = self._getStack()
         self.nplanes = self.stack.shape[2]
         self.height = self.stack[:,:,0].shape[0]
@@ -275,11 +291,32 @@ class Flat(Observation):
             self.subtractFromStack(dark)
 
         self._normalize(norm_thres)
-
+        
         #Where the flat field is undefined, it's set to 1 to avoid divide by zeros.
         self.image[np.where(self.image<0.1)] = 1
+        
         if save:
             self.writeImage()
+
+    def _getStack(self):
+        '''
+        A TEXES flat sequence consists of flat and sky pairs (first flats then skys).
+        '''
+        nexp = np.sum([cube.shape[0]/2 for cube in self.cubes])
+        nx = self.det_pars['nx']
+        ny = self.det_pars['ny']
+
+        stack = np.zeros((nx,ny,nexp))
+        ustack = np.zeros((nx,ny,nexp))
+
+        count = 0
+        for i,cube in enumerate(self.cubes):
+            nplanes = cube.shape[0]/2            
+            for j in np.arange(nplanes):
+                stack[:,:,count]  = (cube[j,:,:]-cube[nplanes+j,:,:])*self.det_pars['gain'] #convert everything to e-
+                ustack[:,:,count] = self._error(cube[j,:,:])
+                count += 1
+        return stack,ustack
         
     def _normalize(self,norm_thres):
         flux = np.median(self.image[np.where(self.image>norm_thres)])
@@ -312,23 +349,19 @@ class Dark(Observation):
             self.badpix.dump(filename)
         
 class Nod(Observation):
-    def __init__(self,filelist,dark=None,flat=None,badpix='badpix.dmp'):
+    def __init__(self,filelist,dark=None,flat=None,badpix=None):
         self.type = 'nod'
         self.Envi = Environment()
         self.flist = filelist
         self._openList()
-        self._makeHeader()
                 
         self.setting,self.echelle,self.crossdisp = self.getSetting()
         self.airmasses = self.getAirmass()
 
         self.airmass = np.mean(self.airmasses)
         
-        RAs  = self.getKeyword('RA')
-        DECs = self.getKeyword('DEC')
-        
         #A average nod requires a Pair Stack. 
-        pairs = self._getPairs(RAs,DECs)
+        pairs = self._getPairs()
         self.stack,self.ustack = self._makePairStack(pairs)
         self.height = self.stack[:,:,0].shape[0]        
         if flat:
@@ -336,11 +369,13 @@ class Nod(Observation):
         if badpix:
             badmask = np.load(badpix)
             self._correctBadPix(badmask)
-        offsets = self._findYOffsets()
-        self.stack   = self._yShift(offsets,self.stack)
-        self.ustack  = self._yShift(offsets,self.ustack)       
+        offsets = self._findXOffsets()
+
+        self.stack   = self._xShift(offsets,self.stack)
+        self.ustack  = self._xShift(offsets,self.ustack)       
+
         self.image,self.uimage = self._collapseStack()
-        
+        self.writeImage()
         #An averaged sky frame is constructed using the straight stack collapse.
         self.stack,self.ustack = self._getStack()
         if flat:
@@ -348,9 +383,10 @@ class Nod(Observation):
         if badpix:
             badmask = np.load(badpix)
             self._correctBadPix(badmask)
+
         offsets = [offset for offset in offsets for i in range(2)]
-        self.stack   = self._yShift(offsets,self.stack)
-        self.ustack  = self._yShift(offsets,self.ustack)
+        self.stack   = self._xShift(offsets,self.stack)
+        self.ustack  = self._xShift(offsets,self.ustack)
 
         self.sky,self.usky = self._collapseStack()
         self.sky -= np.absolute(self.image)/2.
@@ -371,13 +407,13 @@ class Nod(Observation):
 
     def _makePairStack(self,pairs):
         npairs = len(pairs)
-        nx = self.planes[0][0].header['NAXIS1']
-        ny = self.planes[0][0].header['NAXIS2']
+        nx = self.det_pars['nx']
+        ny = self.det_pars['ny']
 
         stack,ustack = self._getStack()
         pair_stack  = np.zeros((nx,ny,npairs))
         pair_ustack = np.zeros((nx,ny,npairs))
-        
+
         for i,pair in enumerate(pairs):
             pair_stack[:,:,i] = stack[:,:,pair[0]] - stack[:,:,pair[1]]
             pair_ustack[:,:,i] = np.sqrt(ustack[:,:,pair[0]]**2 + ustack[:,:,pair[1]]**2)
@@ -393,8 +429,22 @@ class Nod(Observation):
             profile = np.median(self.stack[:,:,i],1)
             cc = fp.ifft(fp.fft(kernel)*np.conj(fp.fft(profile)))
             cc_sh = fp.fftshift(cc)
-            cen = calc_centroid(cc_sh).real - self.height/2.
+            cen = helpers.calc_centroid(cc_sh).real - self.height/2.
             offsets = np.append(offsets,cen)
+        return offsets
+
+    def _findXOffsets(self):
+        
+        kernel = np.median(self.stack[:,:,0],0)
+        offsets = np.empty(0)
+        nplanes = self.stack.shape[2]
+        for i in np.arange(nplanes):
+            profile = np.median(self.stack[:,:,i],0)
+            cc = fp.ifft(fp.fft(kernel)*np.conj(fp.fft(profile)))
+            cc_sh = fp.fftshift(cc)
+            cen = helpers.calc_centroid(cc_sh,cwidth=3.).real - self.height/2.
+            offsets = np.append(offsets,cen)
+        
         return offsets
 
     def _yShift(self,offsets,stack):
@@ -410,34 +460,22 @@ class Nod(Observation):
 
         return internal_stack
 
-    def _getPairs(self,RAs,DECs):
-        nexp = len(RAs)
-        #        assert nexp&2==0, "There must be an even number of exposures"
-        AorB = []
-        RA_A  = RAs[0]
-        DEC_A = DECs[0]
+    def _xShift(self,offsets,stack):
 
-        dist = np.sqrt(((np.array(RAs)-RA_A)*3600)**2+((np.array(DECs)-DEC_A)*3600)**2)
-        max_dist = np.max(dist)
-        
-        for RA,DEC in zip(RAs,DECs):
-            if abs(RA-RA_A)*3600.<max_dist/2. and abs(DEC-DEC_A)*3600.<max_dist/2.:
-                AorB.append('A')
-            else:
-                AorB.append('B')
-        ii = 0
-        pairs = []
-        while ii<nexp:
-            if AorB[ii]!=AorB[ii+1]:
-                if AorB[ii]=='A':
-                    pair = (ii,ii+1)
-                else:
-                    pair = (ii+1,ii)
-                pairs.append(pair)
-                ii+=2
-            else:
-                ii+=1
+        sh = stack.shape
+        internal_stack = np.zeros(sh)
 
+        index = np.arange(sh[1])
+        for plane in np.arange(sh[2]):
+            for i in np.arange(sh[0]):
+                row = np.interp(index-offsets[plane],index,stack[i,:,plane])
+                internal_stack[i,:,plane] = row
+
+        return internal_stack
+
+    def _getPairs(self):
+        As = np.arange(0,self.nnod*2-1,2)
+        Bs = np.arange(0,self.nnod*2-1,2)+1
+        pairs = [(A,B) for A,B in zip(As,Bs)]
         return pairs
-
 

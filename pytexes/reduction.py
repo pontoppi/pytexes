@@ -1,17 +1,17 @@
 from observation import *
+from order import *
 
 class Reduction():
     '''
     Top level basic script for reducing an observation, consisting of a science target and a telluric standard, as well
     as associated calibration files. 
     '''
-    def __init__(self,flat_files=None,
-                 sci_names=None, std_names=None, path=None, level1=True,level2=True,
-                 level1_path='L1FILES',shift=0.0, dtau=0.0, save_dark=False, save_flat=False, 
-                 **kwargs):
+    def __init__(self,flat_names=None, sci_names=None, std_names=None, path=None, level1=True,level2=True,
+                 level1_path='L1FILES',shift=0.0, dtau=0.0, save_dark=False, save_flat=False, **kwargs):
 
-        self.sci_names = sci_names
-        self.std_names = std_names
+        self.flat_names = [path+name for name in flat_names]
+        self.sci_names = [path+name for name in sci_names]
+        self.std_names = [path+name for name in std_names]
 
         self.save_dark = save_dark
         self.save_flat = save_flat
@@ -30,14 +30,13 @@ class Reduction():
         
     def _level1(self):
         OFlat = Flat(self.flat_names, save=self.save_flat)
-
         level1_files = {}
         for key in self.tdict.keys():
-            ONod    = Nod(self.tdict[key],flat=OFlat,dark=ODark)
+            ONod    = Nod(self.tdict[key],flat=OFlat)
             norders = ONod.getNOrders()
             target_files = []
             for i in np.arange(norders):
-                OOrder   = Order(ONod,onum=i+1,write_path='SPEC2D')
+                OOrder   = Order(ONod,onum=i,write_path='SPEC2D')
                 OSpec1D  = Spec1D(OOrder,sa=True,write_path='SPEC1D')
                 OWaveCal = WaveCal(OSpec1D.file,path='WAVE',am=OSpec1D.airmass)
                 OOrder_files = {'2d':OOrder.file, '1d':OSpec1D.file, 'wave':OWaveCal.file}
