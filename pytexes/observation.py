@@ -55,29 +55,29 @@ class Environment():
         return range
         
     def getOrderWidth(self,setting):
-        return self.settings.get(setting,'orderw')
+        orderw = self.settings.get(setting,'orderw')
+        return json.loads(orderw)
+        
+    def getSpatialCenter(self,setting,onum):
+        center_str = self.settings.get(setting,'scenters')
+        centers = json.loads(center_str)
+        return centers[onum]
         
     def getXRange(self,setting,onum):
-        range_str = self.settings.get(setting,'scenters')
-        ranges = json.loads(range_str)
-        orderws = self.getOrderWidth(setting)
-        orderw = json.loads(orderws)
+        center = self.getSpatialCenter(setting,onum)
+        orderw = self.getOrderWidth(setting)
         det = self.getDetPars()
-        left = np.max([ranges[onum]-orderw,0])
-        right = np.min([ranges[onum]+orderw,det['nx']-1])
+        left = np.max([center-orderw,0])
+        right = np.min([center+orderw,det['nx']-1])
         
         return (left,right)
 
     def getDispersion(self,setting,onum):
-        A_str = self.settings.get(setting,'A'+str(int(onum)))
-        B_str = self.settings.get(setting,'B'+str(int(onum)))
-        C_str = self.settings.get(setting,'C'+str(int(onum)))
-        R_str = self.settings.get(setting,'R'+str(int(onum)))
-        As = json.loads(A_str)
-        Bs = json.loads(B_str)
-        Cs = json.loads(C_str)
-        Rs = json.loads(R_str)
-        return {'A':As,'B':Bs,'C':Cs,'R':Rs}
+        w0_str = self.settings.get(setting,'wcenters')
+        w0s = json.loads(w0_str)
+        dw_str = self.settings.get(setting,'deltaws')
+        dws = json.loads(dw_str)
+        return {'w0':w0s[onum],'dw':dws[onum]}
         
     def getDetPars(self):
         gain = self.detpars.getfloat('Detector','gain')
@@ -162,6 +162,9 @@ class Observation():
     def getSetting(self):
         echelle   = self.getKeyword('ECHELLE')
         crossdisp = self.getKeyword('LORES')
+
+        print echelle
+        print crossdisp
 
         assert len([e for e in echelle if e==echelle[0]])==len(echelle), \
             'All exposures must be taken with the same setting!'

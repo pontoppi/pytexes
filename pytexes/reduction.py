@@ -1,5 +1,7 @@
 from observation import *
 from order import *
+from spec1d import *
+import utils.helpers as helpers
 
 class Reduction():
     '''
@@ -37,9 +39,8 @@ class Reduction():
             target_files = []
             for i in np.arange(norders):
                 OOrder   = Order(ONod,onum=i,write_path='SPEC2D')
-                OSpec1D  = Spec1D(OOrder,sa=True,write_path='SPEC1D')
-                OWaveCal = WaveCal(OSpec1D.file,path='WAVE',am=OSpec1D.airmass)
-                OOrder_files = {'2d':OOrder.file, '1d':OSpec1D.file, 'wave':OWaveCal.file}
+                OSpec1D  = Spec1D(OOrder,sa=False,write_path='SPEC1D')
+                OOrder_files = {'2d':OOrder.file, '1d':OSpec1D.file}
                 target_files.append(OOrder_files)
 
             level1_files[key] = target_files
@@ -67,7 +68,7 @@ class Reduction():
     def _getLevel1File(self):
         warnings.resetwarnings()
         warnings.filterwarnings('ignore', category=UserWarning, append=True)
-        header = pf.open(self.sci_names1[0],ignore_missing_end=True)[0].header
-        basename = getBaseName(header)
+        header = pf.open(self.sci_names[0],ignore_missing_end=True)[0].header
+        basename = helpers.getBaseName(header)
         filename = basename+'_files.json'
         return filename

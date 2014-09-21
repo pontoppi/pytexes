@@ -15,7 +15,7 @@ import inpaint as inpaint
 import utils.helpers as helpers
 
 class Order():
-    def __init__(self,Nod,onum=1,trace=None,write_path=None):
+    def __init__(self,Nod,onum=1,write_path=None):
         self.type = 'order'
         self.headers = Nod.headers
         self.setting = Nod.setting
@@ -29,7 +29,8 @@ class Order():
         self.image = Nod.image
         self.uimage = Nod.uimage
         self.sh = self.image.shape
-        xrs,trace = self.fitTrace()
+        xrs,traces = self.fitTrace(porder=2,cwidth=2.)
+        trace = traces[0]
 
         self.xrange = self.Envi.getXRange(self.setting,onum)
         self.image = Nod.image[:,self.xrange[0]:self.xrange[1]]
@@ -39,44 +40,47 @@ class Order():
         self.sh = self.image.shape
         
         self._cullEdges(trace)
-        import pdb;pdb.set_trace()
-        self._subMedian()
 
-        if trace is None:
-            yrs,trace = self.fitTrace()
-
-        self.image_rect,self.uimage_rect = self.yRectify(self.image,self.uimage,yrs,trace)
-        self.sky_rect,self.usky_rect = self.yRectify(self.sky,self.usky,yrs,trace)
-
+        xrs,traces = self.fitTrace(cwidth=3.,porder=5,pad=False)
+        #self.image = self.image-np.median(self.image,axis=0)
+        self.image_rect,self.uimage_rect = self.xRectify(self.image,self.uimage,xrs,traces)
+        
+        self.sky_rect,self.usky_rect = self.xRectify(self.sky,self.usky,xrs,traces)
         if write_path:
             self.file = self.writeImage(path=write_path)
 
     def _cullEdges(self,trace):
         orderw = self.Envi.getOrderWidth(self.setting)
-        det_pars = self.Envi.getDetPars()
-        xindex = 
-        for i in np.arange(det_pars['ny']):
-            np.where()
-
-    def fitTrace(self,kwidth=10):
+        center = self.Envi.getSpatialCenter(self.setting,self.onum)
+        xindex = np.arange(self.sh[1])
+        for i in np.arange(self.sh[0]):
+            bsubs = np.where(xindex<-trace(i))
+            self.image[i,bsubs] = 0.
+            self.sky[i,bsubs] = 0.
+            bsubs = np.where(xindex>-trace(i)+1.5*orderw)
+            self.image[i,bsubs] = 0.
+            self.sky[i,bsubs] = 0.
+            
+    def fitTrace(self,kwidth=10,porder=3,cwidth=30,pad=False):
         sh = self.sh
-        xr1 = (0,sh[0]-1)
+        xr1 = (0,sh[1])
         xrs = [xr1]
 
         polys = []
         for xr in xrs:
             xindex = np.arange(xr[0],xr[1])
-            kernel = np.median(self.image[sh[1]/2-kwidth:sh[1]/2+kwidth,xindex],0)
-           
-            
+            kernel = np.median(self.image[sh[0]/2-kwidth:sh[0]/2+kwidth,xindex],0)
+                
             centroids = []
             totals = []
             for i in np.arange(sh[0]):
-                col_med = np.median(self.image[i,xindex])
-                total = np.abs((self.image[i,xindex]-col_med).sum())
-                cc = fp.ifft(fp.fft(kernel)*np.conj(fp.fft(self.image[i,xindex]-col_med)))
+                row = self.image[i,xindex]
+                row_med = np.median(row)
+                    
+                total = np.abs((row-row_med).sum())
+                cc = fp.ifft(fp.fft(kernel)*np.conj(fp.fft(row-row_med)))
                 cc_sh = fp.fftshift(cc)
-                centroid = helpers.calc_centroid(cc_sh,cwidth=30).real - xindex.shape[0]/2.
+                centroid = helpers.calc_centroid(cc_sh,cwidth=cwidth).real - xindex.shape[0]/2.
                 centroids.append(centroid)
                 totals.append(total)
 
@@ -86,11 +90,10 @@ class Order():
             gsubs = np.where((np.isnan(centroids)==False))
 
             centroids[gsubs] = median_filter(centroids[gsubs],size=20)
-            coeffs = np.polyfit(yindex[gsubs],centroids[gsubs],3)
+            coeffs = np.polyfit(yindex[gsubs],centroids[gsubs],porder)
 
             poly = np.poly1d(coeffs)
             polys.append(poly)
-            
         return xrs,polys
 
     def yRectify(self,image,uimage,yrs,traces):
@@ -108,19 +111,36 @@ class Order():
                 uimage_rect[index,i] = col
 
         return image_rect,uimage_rect
+
+    def xRectify(self,image,uimage,xrs,traces):
+        
+        sh = self.sh
+        image_rect = np.zeros(sh)
+        uimage_rect = np.zeros(sh)
+        
+        for xr,trace in zip(xrs,traces):
+            index = np.arange(xr[0],xr[1])
+            for i in np.arange(sh[0]):
+                row = np.interp(index,index+trace(i),image[i,index])
+                image_rect[i,index] = row
+                row = np.interp(index,index+trace(i),uimage[i,index])
+                uimage_rect[i,index] = row
+
+        return image_rect,uimage_rect
+ 
                 
     def _subMedian(self):
         self.image = self.image-np.median(self.image,axis=0)
             
     def writeImage(self,filename=None,path='.'):
-
+        header = self.headers[0]
         if filename is None:
-            time   = self.header['UTC']
+            time   = header['TIME']
             time   = time.replace(':','')
             time   = time[0:4]
-            date   = self.header['DATE-OBS']
+            date   = header['DATE-OBS']
             date   = date.replace('-','')
-            object = self.header['OBJECT']
+            object = header['OBJECT']
             object = object.replace(' ','')
             filename = path+'/'+object+'_'+date+'_'+time+'_order'+str(self.onum)+'.fits'
 
