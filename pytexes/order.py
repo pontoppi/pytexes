@@ -10,6 +10,7 @@ import scipy.fftpack as fp
 from scipy.stats import tmean, tvar
 from scipy.ndimage.filters import median_filter
 from scipy import constants
+from scipy import interpolate as ip
 import matplotlib.pylab as plt
 import inpaint as inpaint
 import utils.helpers as helpers
@@ -29,7 +30,7 @@ class Order():
         self.image = Nod.image
         self.uimage = Nod.uimage
         self.sh = self.image.shape
-        xrs,traces = self.fitTrace(porder=2,cwidth=2.)
+        xrs,traces = self.fitTrace(porder=1,cwidth=3.)
         trace = traces[0]
 
         self.xrange = self.Envi.getXRange(self.setting,onum)
@@ -39,27 +40,35 @@ class Order():
         self.usky = Nod.usky[:,self.xrange[0]:self.xrange[1]]
         self.sh = self.image.shape
         
-        self._cullEdges(trace)
-
         xrs,traces = self.fitTrace(cwidth=3.,porder=5,pad=False)
-        #self.image = self.image-np.median(self.image,axis=0)
         self.image_rect,self.uimage_rect = self.xRectify(self.image,self.uimage,xrs,traces)
-        
+#        self.image_rect = np.transpose(np.transpose(self.image_rect)-np.median(self.image_rect[:,10:30],axis=1))
+                
         self.sky_rect,self.usky_rect = self.xRectify(self.sky,self.usky,xrs,traces)
+        self._cullEdges()
+
+
         if write_path:
             self.file = self.writeImage(path=write_path)
 
-    def _cullEdges(self,trace):
+#    def _cullEdges(self,trace):
+#        orderw = self.Envi.getOrderWidth(self.setting)
+#        center = self.Envi.getSpatialCenter(self.setting,self.onum)
+#        xindex = np.arange(self.sh[1])
+#        for i in np.arange(self.sh[0]):
+#            bsubs = np.where(xindex<-trace(i))
+#            self.image[i,bsubs] = 0.
+#            self.sky[i,bsubs] = 0.
+#            bsubs = np.where(xindex>-trace(i)+1.5*orderw)
+#            self.image[i,bsubs] = 0.
+#            self.sky[i,bsubs] = 0.
+    def _cullEdges(self):
         orderw = self.Envi.getOrderWidth(self.setting)
-        center = self.Envi.getSpatialCenter(self.setting,self.onum)
-        xindex = np.arange(self.sh[1])
-        for i in np.arange(self.sh[0]):
-            bsubs = np.where(xindex<-trace(i))
-            self.image[i,bsubs] = 0.
-            self.sky[i,bsubs] = 0.
-            bsubs = np.where(xindex>-trace(i)+1.5*orderw)
-            self.image[i,bsubs] = 0.
-            self.sky[i,bsubs] = 0.
+        fullw = self.sh[1]
+        self.image_rect[:,:(fullw-orderw)/2] = 0.
+        self.image_rect[:,-(fullw-orderw)/2:] = 0.        
+        self.sky_rect[:,:(fullw-orderw)/2] = 0.
+        self.sky_rect[:,-(fullw-orderw)/2:] = 0.        
             
     def fitTrace(self,kwidth=10,porder=3,cwidth=30,pad=False):
         sh = self.sh
@@ -105,10 +114,10 @@ class Order():
         for yr,trace in zip(yrs,traces):
             index = np.arange(yr[0],yr[1])
             for i in np.arange(sh[1]):
-                col = np.interp(index-trace(i),index,image[index,i])
-                image_rect[index,i] = col
-                col = np.interp(index-trace(i),index,uimage[index,i])
-                uimage_rect[index,i] = col
+                col = ip.interp1d(index,image[index,i],bounds_error=False,fill_value=0)
+                image_rect[index,i] = col(index-trace(i))
+                col = ip.interp1d(index,uimage[index,i],bounds_error=False,fill_value=1e10)
+                uimage_rect[index,i] = col(index-trace(i))
 
         return image_rect,uimage_rect
 
@@ -121,10 +130,10 @@ class Order():
         for xr,trace in zip(xrs,traces):
             index = np.arange(xr[0],xr[1])
             for i in np.arange(sh[0]):
-                row = np.interp(index,index+trace(i),image[i,index])
-                image_rect[i,index] = row
-                row = np.interp(index,index+trace(i),uimage[i,index])
-                uimage_rect[i,index] = row
+                row = ip.interp1d(index,image[i,index],bounds_error=False,fill_value=0)
+                image_rect[i,index] = row(index-trace(i))
+                row = ip.interp1d(index,uimage[i,index],bounds_error=False,fill_value=1e10)
+                uimage_rect[i,index] = row(index-trace(i))
 
         return image_rect,uimage_rect
  

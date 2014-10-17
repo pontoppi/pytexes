@@ -23,3 +23,9 @@ def getBaseName(header):
     object = object.replace(' ','')
     basename = object+'_'+date+'_'+time
     return basename
+
+def readTEXES(file):
+    spec = pf.getdata(file)
+    header = pf.getheader(file)
+    
+    return spec,header

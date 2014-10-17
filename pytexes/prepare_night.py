@@ -1,11 +1,11 @@
 from texes2fits import *
 import os
 
-nights = ['/astro/pontoppi/DATA/TEXES/NH3_rawdata/Aug10/',
-          '/astro/pontoppi/DATA/TEXES/NH3_rawdata/Aug11/',
-          '/astro/pontoppi/DATA/TEXES/NH3_rawdata/Aug12/',
-          '/astro/pontoppi/DATA/TEXES/NH3_rawdata/Aug13/',
-          '/astro/pontoppi/DATA/TEXES/NH3_rawdata/Aug14/']
+nights = ['/Users/pontoppi/Box Sync/TEXES_NH3_rawdata/Aug10/',
+          '/Users/pontoppi/Box Sync/TEXES_NH3_rawdata/Aug11/',
+          '/Users/pontoppi/Box Sync/TEXES_NH3_rawdata/Aug12/',
+          '/Users/pontoppi/Box Sync/TEXES_NH3_rawdata/Aug13/',
+          '/Users/pontoppi/Box Sync/TEXES_NH3_rawdata/Aug14/']
           
 for night in nights:
     for file in os.listdir(night):

@@ -1,6 +1,7 @@
 from observation import *
 from order import *
 from spec1d import *
+from calspec import *
 import utils.helpers as helpers
 
 class Reduction():
@@ -60,8 +61,8 @@ class Reduction():
         norders = len(level1_files['science'])
 
         for i in np.arange(norders):
-            sci_file = level1_files['science'][i]['wave']
-            std_file = level1_files['standard'][i]['wave']
+            sci_file = level1_files['science'][i]['1d']
+            std_file = level1_files['standard'][i]['1d']
             OCalSpec = CalSpec(sci_file,std_file,shift=self.shift,dtau=self.dtau,write_path='CAL1D',order=i+1)
 
 
