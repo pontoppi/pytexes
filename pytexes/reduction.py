@@ -2,6 +2,8 @@ from observation import *
 from order import *
 from spec1d import *
 from calspec import *
+from combine_orders import *
+
 import utils.helpers as helpers
 
 class Reduction():
@@ -9,7 +11,7 @@ class Reduction():
     Top level basic script for reducing an observation, consisting of a science target and a telluric standard, as well
     as associated calibration files. 
     '''
-    def __init__(self,flat_names=None, sci_names=None, std_names=None, path=None, level1=True,level2=True,
+    def __init__(self,flat_names=None, sci_names=None, std_names=None, path=None, level1=True,level2=True,level3=True,
                  level1_path='L1FILES',shift=0.0, dtau=0.0, save_dark=False, save_flat=False, **kwargs):
 
         self.flat_names = [path+name for name in flat_names]
@@ -30,6 +32,9 @@ class Reduction():
 
         if level2:
             self._level2()
+            
+        if level3:
+            self._level3()
         
     def _level1(self):
         OFlat = Flat(self.flat_names, save=self.save_flat)
@@ -65,6 +70,14 @@ class Reduction():
             std_file = level1_files['standard'][i]['1d']
             OCalSpec = CalSpec(sci_file,std_file,shift=self.shift,dtau=self.dtau,write_path='CAL1D',order=i+1)
 
+    def _level3(self):
+        filename = self._getLevel1File()
+        basename = filename[0:-11]
+        all_files = os.listdir('CAL1D')
+        level2_files = [file for file in all_files if basename in file]
+
+        OCombSpec = CombSpec(level2_files,write_path='COMBSPEC')
+        
 
     def _getLevel1File(self):
         warnings.resetwarnings()

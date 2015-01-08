@@ -46,7 +46,7 @@ class CalSpec():
 
     def _beers(self,Spec,dtau):
         Spec.field('flux')[:] = np.exp((1.+dtau)*np.log(Spec['flux']))
-        
+                
     def writeSpec(self, filename=None, path='.',order=1):
         c1  = pf.Column(name='wave', format='D', array=self.wave)
         c2  = pf.Column(name='flux', format='D', array=self.flux)
