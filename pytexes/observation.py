@@ -467,7 +467,7 @@ class Nod(Observation):
 
         sh = stack.shape
         internal_stack = np.zeros(sh)
-
+        import pdb;pdb.set_trace()
         index = np.arange(sh[1])
         for plane in np.arange(sh[2]):
             for i in np.arange(sh[0]):
