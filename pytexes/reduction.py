@@ -1,3 +1,4 @@
+import os
 from observation import *
 from order import *
 from spec1d import *
@@ -74,9 +75,9 @@ class Reduction():
         filename = self._getLevel1File()
         basename = filename[0:-11]
         all_files = os.listdir('CAL1D')
-        level2_files = [file for file in all_files if basename in file]
+        level2_files = [os.path.join('CAL1D',file) for file in all_files if basename in file]
 
-        OCombSpec = CombSpec(level2_files,write_path='COMBSPEC')
+        OCombSpec = CombSpec(level2_files,write_path='COMBSPEC',micron=True)
         
 
     def _getLevel1File(self):

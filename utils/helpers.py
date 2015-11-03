@@ -2,6 +2,9 @@ import numpy as np
 import astropy.io.fits as pf
 
 def calc_centroid(cc,cwidth=15):
+    #Make sure this is an integer
+    cwidth = int(cwidth)
+    
     maxind = np.argmax(cc)
     mini = max([0,maxind-cwidth])
     maxi = min([maxind+cwidth,cc.shape[0]])

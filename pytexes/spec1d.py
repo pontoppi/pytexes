@@ -187,7 +187,7 @@ class Spec1D():
         else:
             coldefs = pf.ColDefs([c1,c2,c3,c4,c5])
 
-        tbhdu = pf.new_table(coldefs)
+        tbhdu = pf.BinTableHDU.from_columns(coldefs)
 
         header['SETNAME'] = (self.setting, 'Setting name')
         header['ECHLPOS'] = (self.echelle, 'Echelle position')

@@ -54,7 +54,7 @@ class CalSpec():
 
         coldefs = pf.ColDefs([c1,c2,c3])
 
-        tbhdu = pf.new_table(coldefs)
+        tbhdu = pf.BinTableHDU.from_columns(coldefs)
         hdu = pf.PrimaryHDU(header=self.header)
         thdulist = pf.HDUList([hdu,tbhdu])
 

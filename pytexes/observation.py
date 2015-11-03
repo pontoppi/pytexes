@@ -3,9 +3,12 @@ import json
 import os
 import ConfigParser as cp
 
+import warnings
+
 import numpy as np
 import numpy.ma as ma
 import astropy.io.fits as pf
+from astropy.utils.exceptions import AstropyUserWarning
 import scipy.fftpack as fp
 from scipy.stats import tmean, tvar
 from scipy.ndimage.filters import median_filter
@@ -13,6 +16,8 @@ from scipy import constants
 import matplotlib.pylab as plt
 import inpaint as inpaint
 import utils.helpers as helpers
+
+warnings.filterwarnings('ignore', category=AstropyUserWarning)
 
 class Environment():
     '''
@@ -476,8 +481,8 @@ class Nod(Observation):
         return internal_stack
 
     def _getPairs(self):
-        As = np.arange(0,self.nnod*2-1,2)
-        Bs = np.arange(0,self.nnod*2-1,2)+1
+        As = np.arange(0,self.nnod*2-1,2,dtype=np.int16)
+        Bs = np.arange(0,self.nnod*2-1,2,dtype=np.int16)+1
         pairs = [(A,B) for A,B in zip(As,Bs)]
         return pairs
 
