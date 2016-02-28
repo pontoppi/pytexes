@@ -19,7 +19,7 @@ class CombSpec():
 
         self.nsamp = self.orders[0]['wave'].shape[0]
             
-        #self.correct_slope()
+        self.correct_slope()
         self.wave, self.flux, self.uflux = self.combine_orders()
         
         if micron:
@@ -91,7 +91,7 @@ class CombSpec():
             flux_master[gsubs] += interp1d(order['wave'],order['flux'])(wave_master[gsubs])
             uflux_master[gsubs] += interp1d(order['wave'],order['uflux'])(wave_master[gsubs])
             nspec_master[gsubs] += 1
-        
+            
         flux_master /= nspec_master
         uflux_master /= nspec_master
         

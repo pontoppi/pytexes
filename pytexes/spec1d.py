@@ -67,7 +67,6 @@ class Spec1D():
             sky1d[i] = (np.abs(PSF)*sky[i,:]).sum() / (PSF**2).sum()
             usky1d[i] = np.sqrt(1.0/(PSF**2/usky[i,:]**2.).sum())
 
-        
         flux = ma.masked_invalid(flux)
         flux = ma.filled(flux,1.)
         uflux = ma.masked_invalid(uflux)

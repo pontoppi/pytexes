@@ -18,7 +18,7 @@ class CalSpec():
 
         self.wave = self.Sci['wave']
         self.flux = self.Sci['flux']/self.Std['flux']
-        self.uflux = self.flux*np.sqrt((self.Sci['uflux']/self.Sci['flux'])**2 + (self.Std['uflux']/self.Std['uflux'])**2)
+        self.uflux = self.flux*np.sqrt((self.Sci['uflux']/self.Sci['flux'])**2 + (self.Std['uflux']/self.Std['flux'])**2)
 
         if write_path:
             self.file = self.writeSpec(path=write_path,order=order)

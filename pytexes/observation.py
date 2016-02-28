@@ -219,7 +219,8 @@ class Observation():
         return stack,ustack
 
     def _error(self,data):
-        var_data = np.abs(data+self.exp_pars['itime']*self.det_pars['dc']+
+        var_data = np.abs(data*self.exp_pars['itime']*self.exp_pars['nreads']+ #assuming detector units is in e-/s
+                          self.exp_pars['itime']*self.exp_pars['nreads']*self.det_pars['dc']+ 
                           self.det_pars['rn']**2/self.exp_pars['nreads'])
         return np.sqrt(var_data)
     
