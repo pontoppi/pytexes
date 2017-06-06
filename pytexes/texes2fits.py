@@ -26,7 +26,7 @@ def texes2fits(file):
     try:
         cube = np.reshape(-data,(nnods*2,detector_shape[0],detector_shape[1]))
     except ValueError:
-        print "Failed reading ", file
+        print("Failed reading ", file)
         return
 
     hdu = pf.PrimaryHDU(cube)
@@ -36,4 +36,4 @@ def texes2fits(file):
     
     hdu.writeto(file+'.fits',clobber=True)
     
-    print "successfully read ", file
+    print("successfully read ", file)

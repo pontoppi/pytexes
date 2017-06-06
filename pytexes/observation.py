@@ -168,8 +168,8 @@ class Observation():
         echelle   = self.getKeyword('ECHELLE')
         crossdisp = self.getKeyword('LORES')
 
-        print echelle
-        print crossdisp
+        print(echelle)
+        print(crossdisp)
 
         assert len([e for e in echelle if e==echelle[0]])==len(echelle), \
             'All exposures must be taken with the same setting!'
@@ -231,7 +231,7 @@ class Observation():
             self.uimage = np.sqrt(self.uimage**2+Obs.uimage**2)
             self.image -= Obs.image
         except:
-            print 'Subtraction failed - no image calculated'
+            print('Subtraction failed - no image calculated')
 
     def divideInStack(self,Obs):
         warnings.resetwarnings()
@@ -281,7 +281,7 @@ class Observation():
             klist = [header[keyword] for header in self.headers]
             return klist
         except ValueError:
-            print "Invalid header keyword"
+            print("Invalid header keyword")
         
 class Flat(Observation):
     def __init__(self,filelist,dark=None,norm_thres=5000.,save=False):
