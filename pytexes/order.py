@@ -1,7 +1,7 @@
 import warnings
 import json
 import os
-import ConfigParser as cp
+import configparser as cp
 
 import numpy as np
 import numpy.ma as ma
@@ -12,7 +12,7 @@ from scipy.ndimage.filters import median_filter
 from scipy import constants
 from scipy import interpolate as ip
 import matplotlib.pylab as plt
-import inpaint as inpaint
+import pytexes.inpaint as inpaint
 import utils.helpers as helpers
 
 class Order():
@@ -65,10 +65,10 @@ class Order():
     def _cullEdges(self):
         orderw = self.Envi.getOrderWidth(self.setting)
         fullw = self.sh[1]
-        self.image_rect[:,:(fullw-orderw)/2] = 0.
-        self.image_rect[:,-(fullw-orderw)/2:] = 0.        
-        self.sky_rect[:,:(fullw-orderw)/2] = 0.
-        self.sky_rect[:,-(fullw-orderw)/2:] = 0.        
+        self.image_rect[:,:int((fullw-orderw)/2)] = 0.
+        self.image_rect[:,-int((fullw-orderw)/2):] = 0.        
+        self.sky_rect[:,:int((fullw-orderw)/2)] = 0.
+        self.sky_rect[:,-int((fullw-orderw)/2):] = 0.        
             
     def fitTrace(self,kwidth=10,porder=3,cwidth=30,pad=False):
         sh = self.sh
@@ -78,7 +78,7 @@ class Order():
         polys = []
         for xr in xrs:
             xindex = np.arange(xr[0],xr[1])
-            kernel = np.median(self.image[sh[0]/2-kwidth:sh[0]/2+kwidth,xindex],0)
+            kernel = np.median(self.image[int(sh[0]/2-kwidth):int(sh[0]/2+kwidth),xindex],0)
                 
             centroids = []
             totals = []
@@ -153,7 +153,6 @@ class Order():
             object = object.replace(' ','')
             filename = path+'/'+object+'_'+date+'_'+time+'_order'+str(self.onum)+'.fits'
 
-            
         hdu  = pf.PrimaryHDU(self.image_rect)
         uhdu = pf.ImageHDU(self.uimage_rect)
         sky_hdu = pf.ImageHDU(self.sky_rect)

@@ -1,7 +1,7 @@
 import warnings
 import json
 import os
-import ConfigParser as cp
+import configparser as cp
 
 import warnings
 
@@ -14,7 +14,7 @@ from scipy.stats import tmean, tvar
 from scipy.ndimage.filters import median_filter
 from scipy import constants
 import matplotlib.pylab as plt
-import inpaint as inpaint
+import pytexes.inpaint as inpaint
 import utils.helpers as helpers
 
 warnings.filterwarnings('ignore', category=AstropyUserWarning)
@@ -219,7 +219,7 @@ class Observation():
         return stack,ustack
 
     def _error(self,data):
-        var_data = np.abs(data*self.exp_pars['itime']*self.exp_pars['nreads']+ #assuming detector units is in e-/s
+        var_data = np.abs(data*self.exp_pars['itime']*self.exp_pars['nreads']*self.det_pars['gain']+
                           self.exp_pars['itime']*self.exp_pars['nreads']*self.det_pars['dc']+ 
                           self.det_pars['rn']**2/self.exp_pars['nreads'])
         return np.sqrt(var_data)
@@ -264,7 +264,6 @@ class Observation():
         masked_ustack = ma.masked_invalid(ustack)
         image = ma.average(masked_stack,2,weights=1./masked_ustack**2)
         uimage = np.sqrt(ma.mean(masked_ustack**2,2)/ma.count(masked_ustack,2))
-        
         return image, uimage
 
     def writeImage(self,filename=None):
@@ -311,16 +310,16 @@ class Flat(Observation):
         '''
         A TEXES flat sequence consists of flat and sky pairs (first flats then skys).
         '''
-        nexp = np.sum([cube.shape[0]/2 for cube in self.cubes])
-        nx = self.det_pars['nx']
-        ny = self.det_pars['ny']
+        nexp = int(np.sum([cube.shape[0]/2 for cube in self.cubes]))
+        nx = int(self.det_pars['nx'])
+        ny = int(self.det_pars['ny'])
 
         stack = np.zeros((nx,ny,nexp))
         ustack = np.zeros((nx,ny,nexp))
 
         count = 0
         for i,cube in enumerate(self.cubes):
-            nplanes = cube.shape[0]/2            
+            nplanes = int(cube.shape[0]/2)
             for j in np.arange(nplanes):
                 stack[:,:,count]  = (cube[j,:,:]-cube[nplanes+j,:,:])*self.det_pars['gain'] #convert everything to e-
                 ustack[:,:,count] = self._error(cube[j,:,:])

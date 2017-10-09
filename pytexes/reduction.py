@@ -1,9 +1,9 @@
 import os
-from observation import *
-from order import *
-from spec1d import *
-from calspec import *
-from combine_orders import *
+from pytexes.observation import *
+from pytexes.order import *
+from pytexes.spec1d import *
+from pytexes.calspec import *
+from pytexes.combine_orders import *
 
 import utils.helpers as helpers
 
