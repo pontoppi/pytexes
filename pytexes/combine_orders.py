@@ -20,7 +20,7 @@ class CombSpec():
         self.nsamp = self.orders[0]['wave'].shape[0]
             
         self.correct_slope()
-        self.wave, self.flux, self.uflux = self.combine_orders()
+        self.wave, self.flux, self.uflux, self.sky_sci, self.sky_std = self.combine_orders()
         
         if micron:
             self.wave = 1e4/self.wave
@@ -54,7 +54,7 @@ class CombSpec():
             fluxes[:,i] = flux
             i += 1
             
-        trend_mean = np.median(fluxes,axis=1)
+        trend_mean = np.nanmedian(fluxes,axis=1)
         fsubs = np.isfinite(trend_mean)
         pars = polyfit(index[fsubs],trend_mean[fsubs],deg=rank)
         trend_smooth = poly1d(pars)(index)
@@ -81,6 +81,8 @@ class CombSpec():
         wave_master = np.arange(minwave_master,maxwave_master,delta)
         flux_master = np.zeros(wave_master.shape[0])
         uflux_master = np.zeros(wave_master.shape[0])
+        sky_sci_master = np.zeros(wave_master.shape[0])
+        sky_std_master = np.zeros(wave_master.shape[0])
         nspec_master = np.zeros(wave_master.shape[0])
         
         for i in np.arange(self.norders):
@@ -90,19 +92,25 @@ class CombSpec():
             gsubs = np.where((wave_master>minwave) & (wave_master<=maxwave))
             flux_master[gsubs] += interp1d(order['wave'],order['flux'])(wave_master[gsubs])
             uflux_master[gsubs] += interp1d(order['wave'],order['uflux'])(wave_master[gsubs])
+            sky_sci_master[gsubs] += interp1d(order['wave'],order['sky_sci'])(wave_master[gsubs])
+            sky_std_master[gsubs] += interp1d(order['wave'],order['sky_std'])(wave_master[gsubs])
             nspec_master[gsubs] += 1
             
         flux_master /= nspec_master
         uflux_master /= nspec_master
+        sky_sci_master /= nspec_master
+        sky_std_master /= nspec_master
         
-        return wave_master, flux_master, uflux_master   
+        return wave_master, flux_master, uflux_master, sky_sci_master, sky_std_master
         
     def write_spec(self, filename=None, path='.'):
         c1  = fits.Column(name='wave', format='E', array=self.wave)
         c2  = fits.Column(name='flux', format='E', array=self.flux)
         c3  = fits.Column(name='uflux', format='E', array=self.uflux)
+        c4  = fits.Column(name='sky_sci', format='E', array=self.sky_sci)
+        c5  = fits.Column(name='sky_std', format='E', array=self.sky_std)
 
-        coldefs = fits.ColDefs([c1,c2,c3])
+        coldefs = fits.ColDefs([c1,c2,c3,c4,c5])
 
         tbhdu = fits.BinTableHDU.from_columns(coldefs)
         hdu = fits.PrimaryHDU(header=self.header)

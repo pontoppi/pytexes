@@ -378,9 +378,11 @@ class Nod(Observation):
             badmask = np.load(badpix)
             self._correctBadPix(badmask)
         offsets = self._findXOffsets()
-
-        self.stack   = self._xShift(offsets,self.stack)
-        self.ustack  = self._xShift(offsets,self.ustack)       
+        
+        self.no_offset = True
+        if self.no_offset:
+            self.stack   = self._xShift(offsets,self.stack)
+            self.ustack  = self._xShift(offsets,self.ustack)       
 
         self.image,self.uimage = self._collapseStack()
         self.writeImage()

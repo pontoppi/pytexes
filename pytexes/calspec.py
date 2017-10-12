@@ -19,6 +19,8 @@ class CalSpec():
         self.wave = self.Sci['wave']
         self.flux = self.Sci['flux']/self.Std['flux']
         self.uflux = self.flux*np.sqrt((self.Sci['uflux']/self.Sci['flux'])**2 + (self.Std['uflux']/self.Std['flux'])**2)
+        self.sky_sci = self.Sci['sky']
+        self.sky_std = self.Std['sky']
 
         if write_path:
             self.file = self.writeSpec(path=write_path,order=order)
@@ -51,8 +53,10 @@ class CalSpec():
         c1  = pf.Column(name='wave', format='D', array=self.wave)
         c2  = pf.Column(name='flux', format='D', array=self.flux)
         c3  = pf.Column(name='uflux', format='D', array=self.uflux)
+        c4  = pf.Column(name='sky_sci', format='D', array=self.sky_sci)
+        c5  = pf.Column(name='sky_std', format='D', array=self.sky_std)
 
-        coldefs = pf.ColDefs([c1,c2,c3])
+        coldefs = pf.ColDefs([c1,c2,c3,c4,c5])
 
         tbhdu = pf.BinTableHDU.from_columns(coldefs)
         hdu = pf.PrimaryHDU(header=self.header)
