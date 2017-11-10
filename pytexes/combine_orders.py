@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from astropy.io import fits
 from scipy import constants,polyfit,poly1d
@@ -5,9 +6,12 @@ from scipy.interpolate import interp1d
 import matplotlib.pylab as plt
 
 import utils.helpers as helpers
+from pytexes.observation import Environment
 
 class CombSpec():
     def __init__(self, cal_files, write_path=None, micron=False):
+
+        self.envi = Environment()
         self.cal_files = cal_files
         self.norders = len(cal_files)
 
@@ -20,7 +24,7 @@ class CombSpec():
         self.nsamp = self.orders[0]['wave'].shape[0]
             
         self.correct_slope()
-        self.wave, self.flux, self.uflux, self.sky_sci, self.sky_std = self.combine_orders()
+        self.wave, self.flux, self.uflux, self.sky_sci, self.sky_std, self.sky_model = self.combine_orders()
         
         if micron:
             self.wave = 1e4/self.wave
@@ -101,7 +105,27 @@ class CombSpec():
         sky_sci_master /= nspec_master
         sky_std_master /= nspec_master
         
-        return wave_master, flux_master, uflux_master, sky_sci_master, sky_std_master
+        modelsky = self.get_modelsky(wave_master)
+        
+        return wave_master, flux_master, uflux_master, sky_sci_master, sky_std_master, modelsky['irr']
+
+    def get_modelsky(self,wave_master):
+        sys_dir = self.envi._getSysPath()
+        
+        modelsky_file = self.envi.getRefFiles()['skyspec']
+        modelsky_data = fits.getdata(os.path.join(sys_dir,modelsky_file),1)
+        wave = 1e4/modelsky_data['wave'].flatten()
+        irr = modelsky_data['irr'].flatten()
+        #ssubs = np.argsort(wave)
+        #wave = wave[ssubs]
+        #irr = irr[ssubs]
+        irr_int = np.interp(wave_master,wave,irr)
+        
+        #import pdb;pdb.set_trace()
+        modelsky = {'wave':wave_master,'irr':irr_int}
+        
+        return modelsky
+        
         
     def write_spec(self, filename=None, path='.'):
         c1  = fits.Column(name='wave', format='E', array=self.wave)
@@ -109,8 +133,9 @@ class CombSpec():
         c3  = fits.Column(name='uflux', format='E', array=self.uflux)
         c4  = fits.Column(name='sky_sci', format='E', array=self.sky_sci)
         c5  = fits.Column(name='sky_std', format='E', array=self.sky_std)
+        c6  = fits.Column(name='sky_model', format='E', array=self.sky_model)
 
-        coldefs = fits.ColDefs([c1,c2,c3,c4,c5])
+        coldefs = fits.ColDefs([c1,c2,c3,c4,c5,c6])
 
         tbhdu = fits.BinTableHDU.from_columns(coldefs)
         hdu = fits.PrimaryHDU(header=self.header)

@@ -7,7 +7,7 @@ setup(name='pytexes',
       author_email='pontoppi@stsci.edu',
       url='http://www.stsci.edu/~pontoppi',
       packages=['pytexes','utils'],
-      package_data={'pytexes': ['*.ini']}
+      package_data={'pytexes': ['*.ini','*.fits']}
       )
 
     

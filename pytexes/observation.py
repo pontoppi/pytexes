@@ -37,12 +37,12 @@ class Environment():
         Contains all global parameters
 
     '''
-    def __init__(self,settings_file='texes.ini',detpars_file='detector.ini'):
+    def __init__(self,settings_file='texes.ini',refdata_file='refdata.ini'):
         sys_dir = self._getSysPath()
         self.settings = cp.SafeConfigParser()
         self.settings.read(sys_dir+'/'+settings_file)
-        self.detpars = cp.SafeConfigParser()
-        self.detpars.read(sys_dir+'/'+detpars_file)
+        self.refdata = cp.SafeConfigParser()
+        self.refdata.read(sys_dir+'/'+refdata_file)
 
     def _getSysPath(self):
         sys_dir, this_filename = os.path.split(__file__)
@@ -85,12 +85,16 @@ class Environment():
         return {'w0':w0s[onum],'dw':dws[onum]}
         
     def getDetPars(self):
-        gain = self.detpars.getfloat('Detector','gain')
-        rn   = self.detpars.getfloat('Detector','rn')
-        dc   = self.detpars.getfloat('Detector','dc')
-        nx   = self.detpars.getint('Detector','nx')
-        ny   = self.detpars.getint('Detector','ny')
+        gain = self.refdata.getfloat('Detector','gain')
+        rn   = self.refdata.getfloat('Detector','rn')
+        dc   = self.refdata.getfloat('Detector','dc')
+        nx   = self.refdata.getint('Detector','nx')
+        ny   = self.refdata.getint('Detector','ny')
         return {'gain':gain,'rn':rn,'dc':dc,'nx':nx,'ny':ny}
+    
+    def getRefFiles(self):
+        skyspec = self.refdata.get('Files','skyspec')
+        return {'skyspec':skyspec}
         
     def getNOrders(self,setting):
         return self.settings.getint(setting,'norders')
