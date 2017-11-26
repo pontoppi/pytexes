@@ -1,6 +1,11 @@
 import os
 import numpy as np
 from astropy.io import fits
+from astropy.time import Time
+from astropy.coordinates import Angle
+from astropy import units as u
+from PyAstronomy import pyasl
+
 from scipy import constants,polyfit,poly1d
 from scipy.interpolate import interp1d
 import matplotlib.pylab as plt
@@ -9,8 +14,7 @@ import utils.helpers as helpers
 from pytexes.observation import Environment
 
 class CombSpec():
-    def __init__(self, cal_files, write_path=None, micron=False):
-
+    def __init__(self, cal_files, write_path=None, micron=False, revise_wave=True):
         self.envi = Environment()
         self.cal_files = cal_files
         self.norders = len(cal_files)
@@ -28,6 +32,17 @@ class CombSpec():
         
         if micron:
             self.wave = 1e4/self.wave
+            ssubs = np.argsort(self.wave)
+            # We have to sort this in ascending order
+            self.wave = self.wave[ssubs]
+            self.flux = self.flux[ssubs]
+            self.uflux = self.uflux[ssubs]
+            self.sky_std = self.sky_std[ssubs]
+            self.sky_sci = self.sky_sci[ssubs]
+            self.sky_model = self.sky_model[ssubs]
+        
+        if revise_wave:
+            self.revise_wavelength()
             
         if write_path:
             self.file = self.write_spec(path=write_path)
@@ -125,8 +140,71 @@ class CombSpec():
         modelsky = {'wave':wave_master,'irr':irr_int}
         
         return modelsky
+
+    def revise_wavelength(self):
+        fig = plt.figure(1)
+        ax = fig.add_subplot(111)
+        ax.plot(self.sky_sci)
+        ylim = ax.get_ylim()
         
+        xpos = []
+        def onclick(event):
+            
+            print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+                 ('double' if event.dblclick else 'single', event.button,
+                 event.x, event.y, event.xdata, event.ydata))
+            xpos.append(event.xdata)
+            ax.plot([event.xdata,event.xdata],ylim)
+            plt.draw()
+            
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)        
+        plt.show(1)
+        cid = fig.canvas.mpl_disconnect(cid)
+        pixelpos = np.array(xpos)
         
+        fig = plt.figure(1)
+        ax = fig.add_subplot(111)
+        ax.plot(self.wave, self.sky_model)
+        ylim = ax.get_ylim()
+        
+        for pixel in pixelpos:
+            pass
+                
+        xpos = []
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)        
+        plt.show(1)
+        cid = fig.canvas.mpl_disconnect(cid)
+        
+        wavepos = np.array(xpos)
+        
+        coeffs = np.polyfit(pixelpos,wavepos,1)
+        
+        new_wave_func = np.poly1d(coeffs)
+        
+        self.new_wave = new_wave_func(np.arange(self.wave.size))
+        
+        # Remember to sample the sky model on the new wavelength grid
+        self.sky_model = np.interp(self.new_wave,self.wave,self.sky_model)
+        self.wave = self.new_wave
+        
+        plt.plot(self.wave,self.sky_std/np.nanmedian(self.sky_std))
+        plt.plot(self.wave,self.sky_model/np.nanmedian(self.sky_model))
+        plt.show()
+        
+        # Calculate the barycentric correction 
+        lat = 19.8238
+        lon = 155.4689
+        alt = 4213.0
+        jd = Time(self.header['DATE-OBS']).jd
+        ra = Angle(self.header['TARGRA'], unit='hourangle').degree
+        dec = Angle(self.header['TARGDEC'], unit=u.deg).degree
+        
+        corr, hjd = pyasl.helcorr(lon, lat, alt, \
+                    ra, dec, jd)
+                
+        cc = 299792.458 #km/s       
+        self.wave *= (1.0 + corr/cc)    
+                
     def write_spec(self, filename=None, path='.'):
         c1  = fits.Column(name='wave', format='E', array=self.wave)
         c2  = fits.Column(name='flux', format='E', array=self.flux)
@@ -145,6 +223,6 @@ class CombSpec():
             basename = helpers.getBaseName(self.header)
             filename = path+'/'+basename+'_combspec.fits'
 
-        thdulist.writeto(filename,clobber=True)
+        thdulist.writeto(filename,overwrite=True)
 
         return filename  

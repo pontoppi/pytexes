@@ -277,7 +277,7 @@ class Observation():
         hdu = pf.PrimaryHDU(self.image.data)
         uhdu = pf.ImageHDU(self.uimage.data)
         hdulist = pf.HDUList([hdu,uhdu])
-        hdulist.writeto(filename,clobber=True)
+        hdulist.writeto(filename,overwrite=True)
 
     def getKeyword(self,keyword):
         try:
